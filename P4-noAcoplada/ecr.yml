@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Notes ECR Repository"
+
+Parameters:
+  RepositoryName:
+    Type: String
+    Default: notes-app
+    Description: ECR repository name
+
+Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+Outputs:
+  RepositoryUri:
+    Description: ECR URI
+    Value: !GetAtt ECRRepository.RepositoryUri
+
+  RepositoryName:
+    Description: Repository Name
+    Value: !Ref RepositoryName
+
+  RepositoryArn:
+    Description: Repository ARN
+    Value: !GetAtt ECRRepository.Arn
