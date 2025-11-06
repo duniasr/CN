@@ -1,0 +1,5 @@
+flask==3.1.2
+psycopg2-binary==2.9.11
+boto3==1.21.32
+python-dotenv==1.0.0
+pydantic==2.11.7

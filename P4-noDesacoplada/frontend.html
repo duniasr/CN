@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablón de Corcho (Simple)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f0f2f5;
+        }
+        #notes-board {
+            background-color: #d2b48c; /* Color corcho simple */
+            background-size: cover;
+            background-position: center;
+            min-height: 80vh;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 10px solid #8B4513; /* Marco de madera */
+        }
+        .note {
+            width: 280px;
+            height: 280px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow-wrap: break-word;
+            position: relative;
+            cursor: pointer; /* Indica que se puede hacer clic */
+        }
+        .note:hover {
+            transform: scale(1.03); /* Efecto hover más simple */
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        /* CAMBIO: Reemplazado 'textarea' por una clase '.note-message' */
+        .note-message {
+            background: transparent;
+            height: 180px;
+            font-family: 'Comic Sans MS', 'Chalkduster', 'cursive';
+            font-size: 1.1rem;
+            color: #333;
+            overflow-y: auto; /* Para mensajes largos */
+        }
+        .note-author {
+            font-size: 0.9rem;
+            font-style: italic;
+            color: #444;
+            border-top: 1px dashed #666;
+            padding-top: 8px;
+            margin-top: 8px;
+        }
+        .note-delete {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.4);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .note:hover .note-delete {
+            opacity: 1;
+        }
+        .note-delete:hover {
+            background: #dc2626;
+        }
+        #loading-spinner {
+            display: none; /* Se mostrará con JS */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="container mx-auto max-w-7xl">
+        <h1 class="text-4xl font-bold text-center text-gray-800 mb-6" style="font-family: 'Brush Script MT', 'cursive';">Mi Tablón de Corcho Digital</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-gray-100 p-4 rounded-lg shadow-sm">
+            <div>
+                <label for="api-endpoint" class="block text-sm font-medium text-gray-700">Endpoint de API Gateway (Prod):</label>
+                <input type="text" id="api-endpoint" placeholder="Pega aquí la URL 'Invoke URL' (Ej: https://.../prod)" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
+            </div>
+            <div>
+                <label for="api-key" class="block text-sm font-medium text-gray-700">API Key:</label>
+                <input type="text" id="api-key" placeholder="Pega aquí la API Key generada" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg h-fit sticky top-8">
+                <h2 id="form-title" class="text-2xl font-semibold mb-4 text-gray-700">Añadir Nueva Nota</h2>
+                <form id="note-form" class="space-y-4">
+                    <input type="hidden" id="note-id">
+                    <div>
+                        <label for="note-author" class="block text-sm font-medium">Autor:</label>
+                        <input type="text" id="note-author" placeholder="Tu nombre" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
+                    </div>
+                    <div>
+                        <label for="note-message" class="block text-sm font-medium">Mensaje:</label>
+                        <textarea id="note-message" rows="4" placeholder="Recordar comprar..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Color de la Nota:</label>
+                        <div class="flex gap-2 mt-2">
+                            <input type="radio" name="note-color" value="#FFFACD" class="hidden" id="color1" checked><label for="color1" class="w-8 h-8 rounded-full border border-gray-300 cursor-pointer" style="background-color: #FFFACD;"></label>
+                            <input type="radio" name="note-color" value="#ADD8E6" class="hidden" id="color2"><label for="color2" class="w-8 h-8 rounded-full border border-gray-300 cursor-pointer" style="background-color: #ADD8E6;"></label>
+                            <input type="radio" name="note-color" value="#90EE90" class="hidden" id="color3"><label for="color3" class="w-8 h-8 rounded-full border border-gray-300 cursor-pointer" style="background-color: #90EE90;"></label>
+                            <input type="radio" name="note-color" value="#FFB6C1" class="hidden" id="color4"><label for="color4" class="w-8 h-8 rounded-full border border-gray-300 cursor-pointer" style="background-color: #FFB6C1;"></label>
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-save" class="w-full px-4 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Guardar Nota</button>
+                    <button type="button" id="btn-cancel" class="w-full px-4 py-2 font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 hidden">Cancelar Edición</button>
+                </form>
+            </div>
+
+            <div class="lg:col-span-2 relative">
+                <button id="btn-refresh" class="absolute top-4 right-4 z-20 bg-white p-2 rounded-full shadow-lg hover:bg-gray-100">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m-15.357-2a8.001 8.001 0 0015.357 2m0 0H15"></path></svg>
+                </button>
+                
+                <div id="loading-spinner" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-30 rounded-lg">
+                    <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+
+                <div id="notes-board">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const board = document.getElementById('notes-board');
+        const noteForm = document.getElementById('note-form');
+        const formTitle = document.getElementById('form-title');
+        const noteIdField = document.getElementById('note-id');
+        const noteAuthorField = document.getElementById('note-author');
+        const noteMessageField = document.getElementById('note-message');
+        const btnSave = document.getElementById('btn-save');
+        const btnCancel = document.getElementById('btn-cancel');
+        const btnRefresh = document.getElementById('btn-refresh');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        let isEditing = false;
+        
+        // --- API Helper ---
+        const getApiConfig = () => {
+            const baseUrl = document.getElementById('api-endpoint').value;
+            const apiKey = document.getElementById('api-key').value;
+            if (!baseUrl || !apiKey) {
+                alert('Por favor, introduce la URL del Endpoint y la API Key.');
+                return null;
+            }
+            return {
+                baseUrl: baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl,
+                apiKey: apiKey
+            };
+        };
+
+        const apiFetch = async (path, options = {}) => {
+            const config = getApiConfig();
+            if (!config) return { ok: false, error: 'Configuración de API no válida' };
+
+            loadingSpinner.style.display = 'flex';
+            
+            try {
+                const response = await fetch(`${config.baseUrl}${path}`, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': config.apiKey,
+                        ...options.headers,
+                    }
+                });
+
+                // --- INICIO DE LA CORRECCIÓN ---
+                // Si el estado es 204 (No Content), como en un DELETE exitoso,
+                // no intentes leer JSON y simplemente devuelve éxito.
+                if (response.status === 204) {
+                    return { ok: true, data: null };
+                }
+                // --- FIN DE LA CORRECCIÓN ---
+
+                const result = await response.json(); // Ahora esto es seguro
+                if (!response.ok) {
+                    throw new Error(result.error || result.message || 'Error desconocido');
+                }
+                return { ok: true, data: result };
+            } catch (err) {
+                console.error('Error en API Fetch:', err);
+                alert(`Error de API: ${err.message}`);
+                return { ok: false, error: err.message };
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        };
+
+        // --- Renderizado ---
+        const renderNote = (note) => {
+            // Evitar duplicados si la nota ya existe
+            if (document.getElementById(note.note_id)) {
+                document.getElementById(note.note_id).remove();
+            }
+
+            const noteEl = document.createElement('div');
+            noteEl.id = note.note_id;
+            noteEl.className = 'note';
+            noteEl.style.backgroundColor = note.color;
+            noteEl.style.transform = `rotate(${Math.random() * 4 - 2}deg)`; 
+
+            // CAMBIO: 'textarea' reemplazado por 'div' (solo lectura)
+            const messageText = document.createElement('div');
+            messageText.className = 'note-message'; // Clase CSS añadida
+            messageText.innerText = note.message;
+
+            // Autor
+            const authorText = document.createElement('div');
+            authorText.className = 'note-author';
+            authorText.innerText = `De: ${note.author}`;
+            
+            // Botón de borrar
+            const deleteBtn = document.createElement('div');
+            deleteBtn.className = 'note-delete';
+            deleteBtn.innerHTML = '&times;';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation(); // Evitar que se active el clic de 'editar'
+                handleDelete(note.note_id);
+            };
+
+            // Botón de editar (selecciona la nota)
+            // CAMBIO: El 'onclick' ahora está en el elemento principal 'noteEl'
+            noteEl.onclick = () => selectNoteForEdit(note);
+            
+            noteEl.appendChild(deleteBtn);
+            noteEl.appendChild(messageText); // 'messageText' es ahora el div
+            noteEl.appendChild(authorText);
+            board.appendChild(noteEl);
+        };
+
+        // --- Lógica CRUD ---
+
+        // Cargar Todas (GET /items)
+        const loadNotes = async () => {
+            board.innerHTML = ''; // Limpiar el tablón
+            const { ok, data } = await apiFetch('/items');
+            if (ok) {
+                data.sort((a, b) => (a.created_at || a.note_id).localeCompare(b.created_at || b.note_id));
+                data.forEach(renderNote);
+            }
+        };
+
+        // Guardar (POST /items o PUT /items/{id})
+        const handleSave = async (e) => {
+            e.preventDefault();
+            
+            const noteData = {
+                author: noteAuthorField.value,
+                message: noteMessageField.value,
+                color: document.querySelector('input[name="note-color"]:checked').value
+            };
+
+            if (isEditing) {
+                // Actualizar (PUT)
+                const id = noteIdField.value;
+                const { ok, data } = await apiFetch(`/items/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(noteData)
+                });
+                if (ok) {
+                    renderNote(data); // Actualizar la nota en el tablón
+                    resetForm();
+                }
+            } else {
+                // Crear (POST)
+                const { ok, data } = await apiFetch('/items', {
+                    method: 'POST',
+                    body: JSON.stringify(noteData)
+                });
+                if (ok) {
+                    renderNote(data); // Añadir la nueva nota al tablón
+                    resetForm();
+                }
+            }
+        };
+
+        // Borrar (DELETE /items/{id})
+        const handleDelete = async (id) => {
+            if (!confirm('¿Seguro que quieres borrar esta nota?')) return;
+            
+            const { ok } = await apiFetch(`/items/${id}`, { method: 'DELETE' });
+            if (ok) {
+                document.getElementById(id).remove();
+                // Si la nota borrada era la que se estaba editando, limpiar el form
+                if (noteIdField.value === id) {
+                    resetForm();
+                }
+            }
+        };
+
+        // ELIMINADO: La función handleInlineUpdate() ya no es necesaria.
+
+        // --- UI/Formulario ---
+
+        // Seleccionar nota para editar en el formulario
+        const selectNoteForEdit = (note) => {
+            isEditing = true;
+            formTitle.innerText = 'Editar Nota';
+            noteIdField.value = note.note_id;
+            noteAuthorField.value = note.author;
+            noteMessageField.value = note.message;
+            document.querySelector(`input[name="note-color"][value="${note.color}"]`).checked = true;
+            btnSave.innerText = 'Actualizar Nota';
+            btnSave.classList.replace('bg-blue-600', 'bg-yellow-500');
+            btnSave.classList.replace('hover:bg-blue-700', 'hover:bg-yellow-600');
+            btnCancel.style.display = 'block';
+            
+            // ELIMINADO: Resaltado de borde
+        };
+
+        // Limpiar el formulario
+        const resetForm = () => {
+            isEditing = false;
+            formTitle.innerText = 'Añadir Nueva Nota';
+            noteForm.reset(); // Limpia todos los campos
+            document.querySelector('input[name="note-color"][value="#FFFACD"]').checked = true; // Color por defecto
+            noteIdField.value = '';
+            btnSave.innerText = 'Guardar Nota';
+            btnSave.classList.replace('bg-yellow-500', 'bg-blue-600');
+            btnSave.classList.replace('hover:bg-yellow-600', 'hover:bg-blue-700');
+            btnCancel.style.display = 'none';
+            
+            // ELIMINADO: Resetear resaltado de borde
+        };
+
+        // --- Event Listeners ---
+        noteForm.addEventListener('submit', handleSave);
+        btnCancel.addEventListener('click', resetForm);
+        btnRefresh.addEventListener('click', loadNotes);
+
+        // Carga inicial
+        alert("¡Bienvenido! Por favor, introduce tu Endpoint de API Gateway y tu API Key en los campos superiores y luego pulsa el botón de recargar (🔄) en el tablón para cargar las notas.");
+    
+    </script>
+</body>
+</html>
