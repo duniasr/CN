@@ -58,7 +58,7 @@ class DynamoDBDatabase(Database):
     def get_all_notes(self) -> List[Note]:
         response = self.table.scan()
         notes = [Note(**item) for item in response.get('Items', [])]
-        return sorted(notes, key=lambda x: x.position)
+        return notes
     
     def update_note(self, note_id: str, note: Note) -> Optional[Note]:
         note.update_timestamp()
