@@ -18,24 +18,24 @@ Parameters:
   IamRoleARN:
     Type: String
     Description: "Existing IAM role ARN"
-    Default: "arn:aws:iam::339713111309:role/LabRole"
+    Default: "arn:aws:iam::339712904114:role/LabRole"
 
   # --- PARÁMETROS DE TAGS ---
   CreateNoteImageTag:
     Type: String
-    Default: "create_note"
+    Default: "create-note"
   GetNoteImageTag:
     Type: String
-    Default: "get_note"
+    Default: "get-note"
   GetAllNotesImageTag:
     Type: String
-    Default: "get_all_notes"
+    Default: "get-all-notes"
   UpdateNoteImageTag:
     Type: String
-    Default: "update_note"
+    Default: "update-note"
   DeleteNoteImageTag:
     Type: String
-    Default: "delete_note"
+    Default: "delete-note"
 
 # ============================================================================
 # RECURSOS
@@ -153,7 +153,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateNoteLambda.Arn}/invokations"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateNoteLambda.Arn}/invocations"
 
   GetItemsMethod:
     Type: AWS::ApiGateway::Method
@@ -166,7 +166,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAllNotesLambda.Arn}/invokations"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAllNotesLambda.Arn}/invocations"
 
   GetItemMethod:
     Type: AWS::ApiGateway::Method
@@ -181,7 +181,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetNoteLambda.Arn}/invokations"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetNoteLambda.Arn}/invocations"
 
   PutItemMethod:
     Type: AWS::ApiGateway::Method
@@ -196,7 +196,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateNoteLambda.Arn}/invokations"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateNoteLambda.Arn}/invocations"
 
   DeleteItemMethod:
     Type: AWS::ApiGateway::Method
@@ -211,7 +211,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteNoteLambda.Arn}/invokations"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteNoteLambda.Arn}/invocations"
 
   # --- Métodos OPTIONS (Para CORS) ---
   OptionsItemsMethod:
@@ -321,7 +321,7 @@ Resources:
       FunctionName: !GetAtt CreateNoteLambda.Arn
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${PostItemsMethod.HttpMethod}${ItemsResource.Path}"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/POST/items"
 
   GetNoteLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -329,7 +329,7 @@ Resources:
       FunctionName: !GetAtt GetNoteLambda.Arn
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${GetItemMethod.HttpMethod}${ItemResource.Path}"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/items/{id}"
 
   GetAllNotesLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -337,7 +337,7 @@ Resources:
       FunctionName: !GetAtt GetAllNotesLambda.Arn
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${GetItemsMethod.HttpMethod}${ItemsResource.Path}"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/items"
 
   UpdateNoteLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -345,7 +345,7 @@ Resources:
       FunctionName: !GetAtt UpdateNoteLambda.Arn
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${PutItemMethod.HttpMethod}${ItemResource.Path}"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/PUT/items/{id}"
 
   DeleteNoteLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -353,7 +353,7 @@ Resources:
       FunctionName: !GetAtt DeleteNoteLambda.Arn
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${DeleteItemMethod.HttpMethod}${ItemResource.Path}"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/DELETE/items/{id}"
 
 # ============================================================================
 # OUTPUTS (Sin cambios)
@@ -361,7 +361,7 @@ Resources:
 Outputs:
   APIEndpoint:
     Description: API Gateway URL
-    Value: !Sub "https://private-lambda-api.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/${APIStage}"
 
   APIKeyId:
     Description: API Key ID
