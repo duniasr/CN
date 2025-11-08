@@ -10,7 +10,7 @@ COPY lambda_src/update_note/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copia el CÓDIGO COMÚN (relativo a lambda_src)
-COPY lambda_src/common/ ./common/
+COPY lambda_src/app/ ./app/
 
 # Copia el main.py DESDE la subcarpeta create_note
 COPY lambda_src/create_note/main.py .

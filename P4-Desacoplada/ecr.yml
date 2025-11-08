@@ -20,11 +20,11 @@ Resources:
             "rules": [
               {
                 "rulePriority": 1,
-                "description": "Mantain only last 2 images",
+                "description": "Mantain only last 5 images",
                 "selection": {
                   "tagStatus": "any",
                   "countType": "imageCountMoreThan",
-                  "countNumber": 2
+                  "countNumber": 5
                 },
                 "action": {
                   "type": "expire"

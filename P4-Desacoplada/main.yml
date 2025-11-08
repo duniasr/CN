@@ -1,209 +1,131 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "ECS Fargate + API Gateway REST API with API Key"
+Description: "ARQUITECTURA DESACOPLADA (SIN VPC): Lambda + API Gateway + DynamoDB"
 
 Parameters:
-  ImageName:
-    Type: String
-    Description: ECR Image Name
-    Default: notes-app:latest
-
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-    Description: VPC
-
-  SubnetIds:
-    Type: List<AWS::EC2::Subnet::Id>
-    Description: At least 2 Subnets
-
+  # --- Parámetro de DB ---
   DBDynamoName:
     Type: String
     Default: "notes-board"
     Description: DynamoDB table name
 
+  # --- Parámetros de Imagen ---
+  EcrRepositoryName:
+    Type: String
+    Description: ECR image name
+    Default: notes-app 
+    
+  # --- Parámetros de ROL  ---
+  IamRoleARN:
+    Type: String
+    Description: "Existing IAM role ARN"
+    Default: "arn:aws:iam::339713111309:role/LabRole"
+
+  # --- PARÁMETROS DE TAGS ---
+  CreateNoteImageTag:
+    Type: String
+    Default: "create_note"
+  GetNoteImageTag:
+    Type: String
+    Default: "get_note"
+  GetAllNotesImageTag:
+    Type: String
+    Default: "get_all_notes"
+  UpdateNoteImageTag:
+    Type: String
+    Default: "update_note"
+  DeleteNoteImageTag:
+    Type: String
+    Default: "delete_note"
+
 # ============================================================================
-# NETWORKING RESOURCES
+# RECURSOS
 # ============================================================================
 Resources:
-  ECSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for ECS tasks
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          CidrIp: 172.31.0.0/16
 
   # ============================================================================
-  # LOAD BALANCER RESOURCES
+  # 1. Funciones Lambda (Sin VPC)
   # ============================================================================
-  NLB:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Name: notes-nlb
-      Type: network
-      Scheme: internal
-      Subnets: !Ref SubnetIds
+  # (Toda la sección de NETWORKING y VPC ENDPOINTS ha sido eliminada)
 
-  TargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  CreateNoteLambda:
+    Type: AWS::Lambda::Function
     Properties:
-      Name: notes-tg
-      Port: 8080
-      Protocol: TCP
-      VpcId: !Ref VpcId
-      TargetType: ip
-      HealthCheckProtocol: HTTP
-      HealthCheckPath: /health
+      FunctionName: create-note
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${CreateNoteImageTag}"
+      Role: !Ref IamRoleARN
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_DYNAMONAME: !Ref DBDynamoName
 
-  Listener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
+  GetNoteLambda:
+    Type: AWS::Lambda::Function
     Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref TargetGroup
-      LoadBalancerArn: !Ref NLB
-      Port: 8080
-      Protocol: TCP
+      FunctionName: get-note
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${GetNoteImageTag}"
+      Role: !Ref IamRoleARN
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_DYNAMONAME: !Ref DBDynamoName
 
-  # ============================================================================
-  # ECS RESOURCES
-  # ============================================================================
-  ECSCluster:
-    Type: AWS::ECS::Cluster
+  GetAllNotesLambda:
+    Type: AWS::Lambda::Function
     Properties:
-      ClusterName: notes-cluster
+      FunctionName: get-all-notes
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${GetAllNotesImageTag}"
+      Role: !Ref IamRoleARN
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_DYNAMONAME: !Ref DBDynamoName
 
-  TaskDefinition:
-    Type: AWS::ECS::TaskDefinition
+  UpdateNoteLambda:
+    Type: AWS::Lambda::Function
     Properties:
-      Family: notes-task
-      NetworkMode: awsvpc
-      RequiresCompatibilities:
-        - FARGATE
-      Cpu: 256
-      Memory: 512
-      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      ContainerDefinitions:
-        - Name: notes-container
-          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
-          PortMappings:
-            - ContainerPort: 8080
-              Protocol: tcp
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: /ecs/notes
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: notes
-              awslogs-create-group: "true"
-          Environment:
-            - Name: DB_DYNAMONAME
-              Value: !Ref DBDynamoName
+      FunctionName: update-note
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${UpdateNoteImageTag}"
+      Role: !Ref IamRoleARN
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_DYNAMONAME: !Ref DBDynamoName
 
-  ECSService:
-    Type: AWS::ECS::Service
-    DependsOn:
-      - Listener
+  DeleteNoteLambda:
+    Type: AWS::Lambda::Function
     Properties:
-      Cluster: !Ref ECSCluster
-      ServiceName: notes-service
-      TaskDefinition: !Ref TaskDefinition
-      DesiredCount: 1
-      LaunchType: FARGATE
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          AssignPublicIp: DISABLED
-          Subnets: !Ref SubnetIds
-          SecurityGroups:
-            - !Ref ECSSecurityGroup
-      LoadBalancers:
-        - ContainerName: notes-container
-          ContainerPort: 8080
-          TargetGroupArn: !Ref TargetGroup
+      FunctionName: delete-note
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${DeleteNoteImageTag}"
+      Role: !Ref IamRoleARN
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_DYNAMONAME: !Ref DBDynamoName
 
   # ============================================================================
-  # VPC ENDPOINTS (PARA EL ACCESO A ECR)
+  # 3. API Gateway (Conectado a las Lambdas)
   # ============================================================================
-  VPCEndpointSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: "Security Group para los VPC Endpoints de ECR"
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        # Permite que las tareas de ECS (en ECSSecurityGroup) se conecten a los endpoints en HTTPS
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          SourceSecurityGroupId: !Ref ECSSecurityGroup
-
-  ECRApiEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VpcId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
-      VpcEndpointType: Interface
-      SubnetIds: !Ref SubnetIds
-      PrivateDnsEnabled: true
-      SecurityGroupIds:
-        - !Ref VPCEndpointSecurityGroup
-
-  ECRDkrEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VpcId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
-      VpcEndpointType: Interface
-      SubnetIds: !Ref SubnetIds
-      PrivateDnsEnabled: true
-      SecurityGroupIds:
-        - !Ref VPCEndpointSecurityGroup
-
-  S3GatewayEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VpcId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
-      VpcEndpointType: Gateway
-      RouteTableIds:
-        - rtb-0fa892ebd61889800
-  
-  CloudWatchLogsEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VpcId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
-      VpcEndpointType: Interface
-      SubnetIds: !Ref SubnetIds
-      PrivateDnsEnabled: true
-      SecurityGroupIds:
-        - !Ref VPCEndpointSecurityGroup
-  
-  DynamoDBEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VpcId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
-      VpcEndpointType: Gateway
-      RouteTableIds:
-        - rtb-0fa892ebd61889800 # <-- USA EL MISMO ID QUE TU S3GatewayEndpoint
-  # ============================================================================
-  # API GATEWAY RESOURCES
-  # ============================================================================
-  VPCLink:
-    Type: AWS::ApiGateway::VpcLink
-    Properties:
-      Name: notes-vpc-link
-      TargetArns:
-        - !Ref NLB
 
   RestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: notes-api
-      Description: API para gestión de notas
+      Name: notes-api-lambda
+      Description: "API (Lambda) para gestión de notas"
 
   ItemsResource:
     Type: AWS::ApiGateway::Resource
@@ -219,6 +141,7 @@ Resources:
       ParentId: !Ref ItemsResource
       PathPart: "{id}"
 
+  # --- Métodos de la API (Integración AWS_PROXY) ---
   PostItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -228,11 +151,9 @@ Resources:
       AuthorizationType: NONE
       ApiKeyRequired: true
       Integration:
-        Type: HTTP_PROXY
+        Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "http://${NLB.DNSName}:8080/items"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateNoteLambda.Arn}/invokations"
 
   GetItemsMethod:
     Type: AWS::ApiGateway::Method
@@ -243,11 +164,9 @@ Resources:
       AuthorizationType: NONE
       ApiKeyRequired: true
       Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: GET
-        Uri: !Sub "http://${NLB.DNSName}:8080/items"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAllNotesLambda.Arn}/invokations"
 
   GetItemMethod:
     Type: AWS::ApiGateway::Method
@@ -260,13 +179,9 @@ Resources:
       RequestParameters:
         method.request.path.id: true
       Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: GET
-        Uri: !Sub "http://${NLB.DNSName}:8080/items/{id}"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
-        RequestParameters:
-          integration.request.path.id: method.request.path.id
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetNoteLambda.Arn}/invokations"
 
   PutItemMethod:
     Type: AWS::ApiGateway::Method
@@ -279,13 +194,9 @@ Resources:
       RequestParameters:
         method.request.path.id: true
       Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: PUT
-        Uri: !Sub "http://${NLB.DNSName}:8080/items/{id}"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
-        RequestParameters:
-          integration.request.path.id: method.request.path.id
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateNoteLambda.Arn}/invokations"
 
   DeleteItemMethod:
     Type: AWS::ApiGateway::Method
@@ -298,14 +209,11 @@ Resources:
       RequestParameters:
         method.request.path.id: true
       Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: DELETE
-        Uri: !Sub "http://${NLB.DNSName}:8080/items/{id}"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
-        RequestParameters:
-          integration.request.path.id: method.request.path.id
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteNoteLambda.Arn}/invokations"
 
+  # --- Métodos OPTIONS (Para CORS) ---
   OptionsItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -360,6 +268,7 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
+  # --- Despliegue y API Key (Sin cambios) ---
   APIDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
@@ -383,14 +292,14 @@ Resources:
   APIKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: notes-api-key
+      Name: notes-api-key-lambda
       Enabled: true
 
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     DependsOn: APIStage
     Properties:
-      UsagePlanName: notes-usage-plan
+      UsagePlanName: notes-usage-plan-lambda
       ApiStages:
         - ApiId: !Ref RestAPI
           Stage: !Ref APIStage
@@ -402,13 +311,57 @@ Resources:
       KeyType: API_KEY
       UsagePlanId: !Ref UsagePlan
 
+  # ============================================================================
+  # 4. Permisos de Lambda (Necesarios)
+  # ============================================================================
+
+  CreateNoteLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CreateNoteLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${PostItemsMethod.HttpMethod}${ItemsResource.Path}"
+
+  GetNoteLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt GetNoteLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${GetItemMethod.HttpMethod}${ItemResource.Path}"
+
+  GetAllNotesLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt GetAllNotesLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${GetItemsMethod.HttpMethod}${ItemsResource.Path}"
+
+  UpdateNoteLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt UpdateNoteLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${PutItemMethod.HttpMethod}${ItemResource.Path}"
+
+  DeleteNoteLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt DeleteNoteLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/${DeleteItemMethod.HttpMethod}${ItemResource.Path}"
+
 # ============================================================================
-# OUTPUTS
+# OUTPUTS (Sin cambios)
 # ============================================================================
 Outputs:
   APIEndpoint:
     Description: API Gateway URL
-    Value: !Sub "https://${RestAPI}.execute-api.us-east-1.amazonaws.com/prod"
+    Value: !Sub "https://private-lambda-api.execute-api.${AWS::Region}.amazonaws.com/prod"
 
   APIKeyId:
     Description: API Key ID
