@@ -1,25 +1,34 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "DynamoDB Table para la API de Notas"
 
+# --- Parámetros de Entrada ---
 Parameters:
   TableName:
     Type: String
     Default: notes-board
     Description: DynamoDB table Name
 
+# --- Recursos a Crear ---
 Resources:
   NotesTable:
+    # Define la tabla de DynamoDB
     Type: AWS::DynamoDB::Table
     Properties:
+      # Usa el valor del parámetro 'TableName' como nombre de la tabla.
       TableName: !Ref TableName
+      # Define los atributos que se usarán en las claves
       AttributeDefinitions:
-        - AttributeName: note_id
-          AttributeType: S
+        - AttributeName: note_id  # El nombre del atributo.
+          AttributeType: S        # El tipo de dato: 'S' (String).
+      # Define la Clave Primaria de la tabla.
       KeySchema:
-        - AttributeName: note_id
-          KeyType: HASH
+        - AttributeName: note_id  # El atributo a usar como clave.
+          KeyType: HASH           # El tipo de clave: 'HASH'.
+      # Define el modo de facturación.
+      # Solo pagas por las lecturas/escrituras que haces.
       BillingMode: PAY_PER_REQUEST
 
+# --- Salidas del Stack ---
 Outputs:
   TableName:
     Description: DynamoDB table name

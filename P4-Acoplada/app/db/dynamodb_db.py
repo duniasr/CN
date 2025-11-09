@@ -20,9 +20,8 @@ class DynamoDBDatabase(Database):
         except ClientError as e:
             # Si da un error, comprueba si es porque la tabla no existe.
             if e.response['Error']['Code'] == 'ResourceNotFoundException':
-                # La tabla no existe, crearla
-                print(f"Creando tabla DynamoDB '{self.table_name}'...")
                 # La tabla no existe, así que la creamos.
+                print(f"Creando tabla DynamoDB '{self.table_name}'...")
                 table = self.dynamodb.create_table(
                     TableName=self.table_name,
                     KeySchema=[ # Define la clave primaria (Partition Key)
