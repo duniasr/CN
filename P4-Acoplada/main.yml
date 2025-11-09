@@ -31,7 +31,7 @@ Resources:
   # RECURSOS DE RED (FIREWALL Y BALANCEADOR)
   # ============================================================================
   
-  # 1. Firewall del Contenedor
+  # Firewall del Contenedor
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -45,7 +45,7 @@ Resources:
           # ...solamente desde el rango de IP de la VPC (es decir, desde el NLB).
           CidrIp: 172.31.0.0/16
 
-  # 2. Balanceador de Carga de Red (NLB)
+  # Balanceador de Carga de Red (NLB)
   NLB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -54,7 +54,7 @@ Resources:
       Scheme: internal  # 'internal' significa que el NLB no tiene IP pública.
       Subnets: !Ref SubnetIds # Desplegar el NLB en las subredes privadas.
 
-  # 3. Grupo de Destino (a dónde apunta el NLB)
+  # Grupo de Destino (a dónde apunta el NLB)
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -67,7 +67,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckPath: /health
   
-  # 4. "Oído" del Balanceador (Listener)
+  # "Oído" del Balanceador (Listener)
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -84,13 +84,13 @@ Resources:
   # ============================================================================
   # RECURSOS DE CÓMPUTO (ECS FARGATE)
   # ============================================================================
-  # 5. Clúster de ECS (Agrupador lógico)
+  # Clúster de ECS (Agrupador lógico)
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: notes-cluster
 
-  # 6. Definición de la Tarea
+  # Definición de la Tarea
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -125,7 +125,7 @@ Resources:
             - Name: DB_DYNAMONAME
               Value: !Ref DBDynamoName
 
-  # 7. Servicio de ECS (mantiene la app corriendo)
+  # Servicio de ECS (mantiene la app corriendo)
   ECSService:
     Type: AWS::ECS::Service
     # No intentar iniciar el servicio hasta que el Listener esté listo.
@@ -157,7 +157,7 @@ Resources:
   # Dado que el contenedor no tiene IP pública (es privado),
   # necesita estas "puertas traseras" privadas
 
-  # 8. Firewall para los Endpoints
+  # Firewall para los Endpoints
   VPCEndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -171,7 +171,7 @@ Resources:
           # ...a estos endpoints.
           SourceSecurityGroupId: !Ref ECSSecurityGroup
 
-  # 9. Endpoints para ECR (descargar la imagen de Docker)
+  # Endpoints para ECR (descargar la imagen de Docker)
   ECRApiEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -194,7 +194,7 @@ Resources:
       SecurityGroupIds:
         - !Ref VPCEndpointSecurityGroup
 
-  # 10. Endpoint para S3 (ECR usa S3 para almacenar las capas de la imagen)
+  # Endpoint para S3 (ECR usa S3 para almacenar las capas de la imagen)
   S3GatewayEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -205,7 +205,7 @@ Resources:
         # ID de la tabla de rutas de tus subredes privadas
         - rtb-0fa892ebd61889800
   
-  # 11. Endpoint para CloudWatch Logs (enviar los logs)
+  # Endpoint para CloudWatch Logs (enviar los logs)
   CloudWatchLogsEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -217,7 +217,7 @@ Resources:
       SecurityGroupIds:
         - !Ref VPCEndpointSecurityGroup
   
-  # 12. Endpoint para DynamoDB (conectar la app a la BD)
+  # Endpoint para DynamoDB (conectar la app a la BD)
   DynamoDBEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -231,7 +231,7 @@ Resources:
   # API GATEWAY RESOURCES
   # ============================================================================
   
-  # 13. El "Puente" privado entre API Gateway y el NLB
+  # El "Puente" privado entre API Gateway y el NLB
   VPCLink:
     Type: AWS::ApiGateway::VpcLink
     Properties:
@@ -240,14 +240,14 @@ Resources:
       TargetArns:
         - !Ref NLB
   
-  # 14. La API REST en sí
+  # La API REST en sí
   RestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: notes-api
       Description: API para gestión de notas
 
-  # 15. El recurso de ruta /items
+  # El recurso de ruta /items
   ItemsResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -255,7 +255,7 @@ Resources:
       ParentId: !GetAtt RestAPI.RootResourceId
       PathPart: items
 
-  # 16. El recurso de ruta /items/{id}
+  # El recurso de ruta /items/{id}
   ItemResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -263,7 +263,7 @@ Resources:
       ParentId: !Ref ItemsResource
       PathPart: "{id}"
 
-  # 17. Método POST /items
+  # Método POST /items
   PostItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -280,7 +280,7 @@ Resources:
         ConnectionType: VPC_LINK # Usar el "puente" para conectar.
         ConnectionId: !Ref VPCLink
 
-  # 18. Método GET /items
+  # Método GET /items
   GetItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -296,7 +296,7 @@ Resources:
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
 
-  # 19. Método GET /items/{id}
+  # Método GET /items/{id}
   GetItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -317,7 +317,7 @@ Resources:
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
-  # 20. Método PUT /items/{id}
+  # Método PUT /items/{id}
   PutItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -337,7 +337,7 @@ Resources:
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
-  # 21. Método DELETE /items/{id}
+  # Método DELETE /items/{id}
   DeleteItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -358,7 +358,7 @@ Resources:
           integration.request.path.id: method.request.path.id
 
   # MÉTODO OPTIONS PARA CORS
-  # 22. Métodos OPTIONS para CORS (en /items)
+  # Métodos OPTIONS para CORS (en /items)
   OptionsItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -388,7 +388,7 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  # 23. Métodos OPTIONS para CORS (en /items/{id})
+  # Métodos OPTIONS para CORS (en /items/{id})
   OptionsItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -416,7 +416,8 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  # 24. Despliegue de la API (Toma una "foto" de la configuración)
+  # --- Despliegue y API Key ---
+  # Despliegue de la API (Toma una "foto" de la configuración)
   APIDeployment:
     Type: AWS::ApiGateway::Deployment
     # No "desplegar" hasta que todos los métodos estén creados.
@@ -431,7 +432,7 @@ Resources:
     Properties:
       RestApiId: !Ref RestAPI
 
-  # 25. Etapa de Despliegue (Publica la "foto" en una URL)
+  # Etapa de Despliegue (Publica la "foto" en una URL)
   APIStage:
     Type: AWS::ApiGateway::Stage
     Properties:
@@ -439,14 +440,14 @@ Resources:
       DeploymentId: !Ref APIDeployment
       StageName: prod # -> La URL terminará en /prod
 
-  # 26. Creación de la API Key
+  # Creación de la API Key
   APIKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
       Name: notes-api-key
       Enabled: true
 
-  # 27. Plan de Uso (Define reglas para la API Key)
+  # Plan de Uso (Define reglas para la API Key)
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     DependsOn: APIStage
@@ -456,7 +457,7 @@ Resources:
         - ApiId: !Ref RestAPI
           Stage: !Ref APIStage
 
-  # 28. Vínculo entre la Key y el Plan
+  # Vínculo entre la Key y el Plan
   UsagePlanKey:
     Type: AWS::ApiGateway::UsagePlanKey
     Properties:
@@ -473,7 +474,7 @@ Outputs:
     Description: API Gateway URL
     Value: !Sub "https://${RestAPI}.execute-api.us-east-1.amazonaws.com/prod"
 
-  # El ID de la API Key (para buscarla en la consola y ver el secreto).
+  # El ID de la API Key.
   APIKeyId:
     Description: API Key ID
     Value: !Ref APIKey

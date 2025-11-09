@@ -14,13 +14,13 @@ Parameters:
     Description: ECR image name
     Default: notes-app 
     
-  # --- Parámetros de ROL  ---
+  # --- Parámetros de ROL(Un solo rol para todas las Lambdas)  ---
   IamRoleARN:
     Type: String
     Description: "Existing IAM role ARN"
     Default: "arn:aws:iam::339712904114:role/LabRole"
 
-  # --- PARÁMETROS DE TAGS ---
+  # --- PARÁMETROS DE TAGS(Para diferenciar cada imagen de función) ---
   CreateNoteImageTag:
     Type: String
     Default: "create-note"
@@ -45,22 +45,29 @@ Resources:
   # ============================================================================
   # 1. Funciones Lambda (Sin VPC)
   # ============================================================================
-  # (Toda la sección de NETWORKING y VPC ENDPOINTS ha sido eliminada)
+  # Esta sección reemplaza a ECS Fargate. 
+  # No hay 'ECSCluster', 'ECSService' ni 'TaskDefinition' monolítica.
+  # Tampoco hay VPC, NLB, ni Endpoints (arquitectura "Sin VPC").
 
   CreateNoteLambda:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: create-note
+      # 'Image' especifica que el código viene de ECR, no de un .zip.
       PackageType: Image
       Code:
+        # URI completa de la imagen de Docker para esta función específica.
         ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepositoryName}:${CreateNoteImageTag}"
-      Role: !Ref IamRoleARN
+      Role: !Ref IamRoleARN # El rol que da permisos a la función.
       Timeout: 30
       MemorySize: 512
       Environment:
         Variables:
+          # Inyecta el nombre de la tabla, igual que en Fargate.
           DB_DYNAMONAME: !Ref DBDynamoName
-
+  
+  # Cada una de las siguientes funciones es un recurso independiente,
+  # con su propia imagen de ECR, pero compartiendo el mismo rol y BBDD.
   GetNoteLambda:
     Type: AWS::Lambda::Function
     Properties:
@@ -120,6 +127,7 @@ Resources:
   # ============================================================================
   # 3. API Gateway (Conectado a las Lambdas)
   # ============================================================================
+  # Ya no se usa 'VPCLink' ni 'HTTP_PROXY'
 
   RestAPI:
     Type: AWS::ApiGateway::RestApi
@@ -127,6 +135,7 @@ Resources:
       Name: notes-api-lambda
       Description: "API (Lambda) para gestión de notas"
 
+  # El recurso de ruta /items
   ItemsResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -134,6 +143,7 @@ Resources:
       ParentId: !GetAtt RestAPI.RootResourceId
       PathPart: items
 
+  # El recurso de ruta /items/{id}
   ItemResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -149,10 +159,15 @@ Resources:
       ResourceId: !Ref ItemsResource
       HttpMethod: POST
       AuthorizationType: NONE
-      ApiKeyRequired: true
+      ApiKeyRequired: true # Requiere una API Key.
       Integration:
+        # 'AWS_PROXY' es la integración especial para Lambda.
+        # Convierte la petición HTTP en un evento JSON para la Lambda.
         Type: AWS_PROXY
+        # 'IntegrationHttpMethod' debe ser POST para invocar la API de Lambda.
         IntegrationHttpMethod: POST
+        # La 'Uri' ya no es 'http://...' al NLB.
+        # Ahora es el ARN de la función Lambda que debe ser invocada.
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateNoteLambda.Arn}/invocations"
 
   GetItemsMethod:
@@ -162,10 +177,15 @@ Resources:
       ResourceId: !Ref ItemsResource
       HttpMethod: GET
       AuthorizationType: NONE
-      ApiKeyRequired: true
+      ApiKeyRequired: true # Requiere una API Key.
       Integration:
+        # 'AWS_PROXY' es la integración especial para Lambda.
+        # Convierte la petición HTTP en un evento JSON para la Lambda.
         Type: AWS_PROXY
+        # 'IntegrationHttpMethod' debe ser POST para invocar la API de Lambda.
         IntegrationHttpMethod: POST
+        # La 'Uri' ya no es 'http://...' al NLB.
+        # Ahora es el ARN de la función Lambda que debe ser invocada.
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAllNotesLambda.Arn}/invocations"
 
   GetItemMethod:
@@ -177,10 +197,15 @@ Resources:
       AuthorizationType: NONE
       ApiKeyRequired: true
       RequestParameters:
-        method.request.path.id: true
+        method.request.path.id: true # Requiere una API Key.
       Integration:
+        # 'AWS_PROXY' es la integración especial para Lambda.
+        # Convierte la petición HTTP en un evento JSON para la Lambda.
         Type: AWS_PROXY
+        # 'IntegrationHttpMethod' debe ser POST para invocar la API de Lambda.
         IntegrationHttpMethod: POST
+        # La 'Uri' ya no es 'http://...' al NLB.
+        # Ahora es el ARN de la función Lambda que debe ser invocada.
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetNoteLambda.Arn}/invocations"
 
   PutItemMethod:
@@ -192,10 +217,15 @@ Resources:
       AuthorizationType: NONE
       ApiKeyRequired: true
       RequestParameters:
-        method.request.path.id: true
+        method.request.path.id: true # Requiere una API Key.
       Integration:
+        # 'AWS_PROXY' es la integración especial para Lambda.
+        # Convierte la petición HTTP en un evento JSON para la Lambda.
         Type: AWS_PROXY
+        # 'IntegrationHttpMethod' debe ser POST para invocar la API de Lambda.
         IntegrationHttpMethod: POST
+        # La 'Uri' ya no es 'http://...' al NLB.
+        # Ahora es el ARN de la función Lambda que debe ser invocada.
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateNoteLambda.Arn}/invocations"
 
   DeleteItemMethod:
@@ -207,13 +237,19 @@ Resources:
       AuthorizationType: NONE
       ApiKeyRequired: true
       RequestParameters:
-        method.request.path.id: true
+        method.request.path.id: true # Requiere una API Key.
       Integration:
+        # 'AWS_PROXY' es la integración especial para Lambda.
+        # Convierte la petición HTTP en un evento JSON para la Lambda.
         Type: AWS_PROXY
+        # 'IntegrationHttpMethod' debe ser POST para invocar la API de Lambda.
         IntegrationHttpMethod: POST
+        # La 'Uri' ya no es 'http://...' al NLB.
+        # Ahora es el ARN de la función Lambda que debe ser invocada.
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteNoteLambda.Arn}/invocations"
 
   # --- Métodos OPTIONS (Para CORS) ---
+  # API Gateway sigue manejando CORS con MOCK
   OptionsItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -268,9 +304,11 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  # --- Despliegue y API Key (Sin cambios) ---
+  # --- Despliegue y API Key ---
+  # Despliegue de la API (Toma una "foto" de la configuración)
   APIDeployment:
     Type: AWS::ApiGateway::Deployment
+    # No "desplegar" hasta que todos los métodos estén creados.
     DependsOn:
       - PostItemsMethod
       - GetItemsMethod
@@ -282,6 +320,7 @@ Resources:
     Properties:
       RestApiId: !Ref RestAPI
 
+  # Etapa de Despliegue (Publica la "foto" en una URL)
   APIStage:
     Type: AWS::ApiGateway::Stage
     Properties:
@@ -289,12 +328,14 @@ Resources:
       DeploymentId: !Ref APIDeployment
       StageName: prod
 
+  # Creación de la API Key
   APIKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
       Name: notes-api-key-lambda
       Enabled: true
 
+  # Plan de Uso (Define reglas para la API Key)
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     DependsOn: APIStage
@@ -304,6 +345,7 @@ Resources:
         - ApiId: !Ref RestAPI
           Stage: !Ref APIStage
 
+  # 28. Vínculo entre la Key y el Plan
   UsagePlanKey:
     Type: AWS::ApiGateway::UsagePlanKey
     Properties:
@@ -314,55 +356,65 @@ Resources:
   # ============================================================================
   # 4. Permisos de Lambda (Necesarios)
   # ============================================================================
+  # En la arquitectura acoplada, el 'VPCLink' conectaba la API al NLB.
+  # Aquí, necesitamos darle permiso explícito a API Gateway para
+  # invocar (ejecutar) cada función Lambda.
 
   CreateNoteLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !GetAtt CreateNoteLambda.Arn
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
+      FunctionName: !GetAtt CreateNoteLambda.Arn # La Lambda que recibe el permiso.
+      Action: lambda:InvokeFunction # El permiso de "invocar".
+      Principal: apigateway.amazonaws.com # Quién recibe el permiso (API Gateway).
+      # Limita el permiso solo a esta API y a este método (POST /items).
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/POST/items"
 
   GetNoteLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !GetAtt GetNoteLambda.Arn
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
+      Action: lambda:InvokeFunction # El permiso de "invocar".
+      Principal: apigateway.amazonaws.com # Quién recibe el permiso (API Gateway).
+      # Limita el permiso solo a ESTA API y a ESTE método (GET /items/{id}).
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/items/{id}"
 
   GetAllNotesLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !GetAtt GetAllNotesLambda.Arn
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
+      FunctionName: !GetAtt GetAllNotesLambda.Arn # La Lambda que recibe el permiso.
+      Action: lambda:InvokeFunction # El permiso de "invocar".
+      Principal: apigateway.amazonaws.com # Quién recibe el permiso (API Gateway).
+      # Limita el permiso solo a ESTA API y a ESTE método (GET /items).
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/items"
 
   UpdateNoteLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !GetAtt UpdateNoteLambda.Arn
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
+      FunctionName: !GetAtt UpdateNoteLambda.Arn # La Lambda que recibe el permiso.
+      Action: lambda:InvokeFunction # El permiso de "invocar".
+      Principal: apigateway.amazonaws.com # Quién recibe el permiso (API Gateway).
+      # Limita el permiso solo a ESTA API y a ESTE método (PUT /items/{id}).
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/PUT/items/{id}"
 
   DeleteNoteLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !GetAtt DeleteNoteLambda.Arn
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
+      FunctionName: !GetAtt DeleteNoteLambda.Arn # La Lambda que recibe el permiso.
+      Action: lambda:InvokeFunction # El permiso de "invocar".
+      Principal: apigateway.amazonaws.com # Quién recibe el permiso (API Gateway).
+      # Limita el permiso solo a ESTA API y a ESTE método (DELETE /items/{id}).
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/DELETE/items/{id}"
 
 # ============================================================================
-# OUTPUTS (Sin cambios)
+# OUTPUTS
 # ============================================================================
 Outputs:
+  # La URL pública de la API que se debe usar.
   APIEndpoint:
     Description: API Gateway URL
     Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/${APIStage}"
 
+  # El ID de la API Key.
   APIKeyId:
     Description: API Key ID
     Value: !Ref APIKey
