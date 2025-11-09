@@ -1,6 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "ECS Fargate + API Gateway REST API with API Key"
 
+# ============================================================================
+# PARÁMETROS DE ENTRADA
+# ============================================================================
 Parameters:
   ImageName:
     Type: String
@@ -21,124 +24,154 @@ Parameters:
     Description: DynamoDB table name
 
 # ============================================================================
-# NETWORKING RESOURCES
+# RECURSOS DE INFRAESTRUCTURA
 # ============================================================================
 Resources:
+  # ============================================================================
+  # RECURSOS DE RED (FIREWALL Y BALANCEADOR)
+  # ============================================================================
+  
+  # 1. Firewall del Contenedor
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for ECS tasks
       VpcId: !Ref VpcId
       SecurityGroupIngress:
+        # Regla de entrada: Permite tráfico...
         - IpProtocol: tcp
-          FromPort: 8080
+          FromPort: 8080 # ...en el puerto 8080 (donde escucha Flask)
           ToPort: 8080
+          # ...solamente desde el rango de IP de la VPC (es decir, desde el NLB).
           CidrIp: 172.31.0.0/16
 
-  # ============================================================================
-  # LOAD BALANCER RESOURCES
-  # ============================================================================
+  # 2. Balanceador de Carga de Red (NLB)
   NLB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: notes-nlb
-      Type: network
-      Scheme: internal
-      Subnets: !Ref SubnetIds
+      Type: network  # Balanceador de capa 4 (TCP)
+      Scheme: internal  # 'internal' significa que el NLB no tiene IP pública.
+      Subnets: !Ref SubnetIds # Desplegar el NLB en las subredes privadas.
 
+  # 3. Grupo de Destino (a dónde apunta el NLB)
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: notes-tg
-      Port: 8080
+      Port: 8080  # El tráfico se enviará a las tareas en el puerto 8080.
       Protocol: TCP
       VpcId: !Ref VpcId
-      TargetType: ip
+      TargetType: ip # 'ip' es requerido por Fargate (que asigna IPs a las tareas).
+      # El NLB comprobará la salud del contenedor llamando a esta ruta.
       HealthCheckProtocol: HTTP
       HealthCheckPath: /health
-
+  
+  # 4. "Oído" del Balanceador (Listener)
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
+        # Acción por defecto: reenviar el tráfico...
         - Type: forward
+          # ...al Grupo de Destino que definimos.
           TargetGroupArn: !Ref TargetGroup
+      # Adjuntar este Listener al NLB.
       LoadBalancerArn: !Ref NLB
-      Port: 8080
+      Port: 8080 # Escuchar en el puerto 8080.
       Protocol: TCP
 
   # ============================================================================
-  # ECS RESOURCES
+  # RECURSOS DE CÓMPUTO (ECS FARGATE)
   # ============================================================================
+  # 5. Clúster de ECS (Agrupador lógico)
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: notes-cluster
 
+  # 6. Definición de la Tarea
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: notes-task
-      NetworkMode: awsvpc
+      NetworkMode: awsvpc # Requerido por Fargate, da una IP propia a la tarea.
       RequiresCompatibilities:
-        - FARGATE
+        - FARGATE # Especifica el motor de cómputo
       Cpu: 256
       Memory: 512
+      # Rol de IAM que Fargate usa para descargar la imagen de ECR y enviar logs.
       ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      # Rol de IAM que la aplicación usa
       TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       ContainerDefinitions:
         - Name: notes-container
+          # La imagen Docker a ejecutar, construida desde el parámetro.
           Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
           PortMappings:
+            # Expone el puerto 8080 del contenedor.
             - ContainerPort: 8080
               Protocol: tcp
+          # Configuración de Logs: Enviar toda la salida a CloudWatch.
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/notes
+              awslogs-group: /ecs/notes # Nombre del grupo de logs.
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: notes
-              awslogs-create-group: "true"
+              awslogs-create-group: "true" # Crear el grupo si no existe.
+          # Inyecta variables de entorno en el contenedor.
           Environment:
             - Name: DB_DYNAMONAME
               Value: !Ref DBDynamoName
 
+  # 7. Servicio de ECS (mantiene la app corriendo)
   ECSService:
     Type: AWS::ECS::Service
+    # No intentar iniciar el servicio hasta que el Listener esté listo.
     DependsOn:
       - Listener
     Properties:
-      Cluster: !Ref ECSCluster
+      Cluster: !Ref ECSCluster # En qué clúster correr.
       ServiceName: notes-service
-      TaskDefinition: !Ref TaskDefinition
-      DesiredCount: 1
+      TaskDefinition: !Ref TaskDefinition # Qué "receta" (TaskDef) debe ejecutar.
+      DesiredCount: 1 # Asegurar que siempre haya 1 copia corriendo.
       LaunchType: FARGATE
       NetworkConfiguration:
         AwsvpcConfiguration:
+          # No asignar IP pública. El contenedor es privado.
           AssignPublicIp: DISABLED
-          Subnets: !Ref SubnetIds
+          Subnets: !Ref SubnetIds # En qué subredes privadas lanzar la tarea.
           SecurityGroups:
+            # Aplicar el firewall que creamos al contenedor.
             - !Ref ECSSecurityGroup
       LoadBalancers:
+        # Registrar automáticamente la IP de la tarea en el TargetGroup del NLB.
         - ContainerName: notes-container
           ContainerPort: 8080
           TargetGroupArn: !Ref TargetGroup
 
   # ============================================================================
-  # VPC ENDPOINTS (PARA EL ACCESO A ECR)
+  # VPC ENDPOINTS (Para acceso privado a servicios de AWS)
   # ============================================================================
+  # Dado que el contenedor no tiene IP pública (es privado),
+  # necesita estas "puertas traseras" privadas
+
+  # 8. Firewall para los Endpoints
   VPCEndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: "Security Group para los VPC Endpoints de ECR"
       VpcId: !Ref VpcId
       SecurityGroupIngress:
-        # Permite que las tareas de ECS (en ECSSecurityGroup) se conecten a los endpoints en HTTPS
+        # Permite que el contenedor (identificado por su 'ECSSecurityGroup')...
         - IpProtocol: tcp
-          FromPort: 443
+          FromPort: 443 # ...se conecte por HTTPS...
           ToPort: 443
+          # ...a estos endpoints.
           SourceSecurityGroupId: !Ref ECSSecurityGroup
 
+  # 9. Endpoints para ECR (descargar la imagen de Docker)
   ECRApiEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -161,6 +194,7 @@ Resources:
       SecurityGroupIds:
         - !Ref VPCEndpointSecurityGroup
 
+  # 10. Endpoint para S3 (ECR usa S3 para almacenar las capas de la imagen)
   S3GatewayEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -168,8 +202,10 @@ Resources:
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
       VpcEndpointType: Gateway
       RouteTableIds:
+        # ID de la tabla de rutas de tus subredes privadas
         - rtb-0fa892ebd61889800
   
+  # 11. Endpoint para CloudWatch Logs (enviar los logs)
   CloudWatchLogsEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -181,6 +217,7 @@ Resources:
       SecurityGroupIds:
         - !Ref VPCEndpointSecurityGroup
   
+  # 12. Endpoint para DynamoDB (conectar la app a la BD)
   DynamoDBEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -188,23 +225,29 @@ Resources:
       ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
       VpcEndpointType: Gateway
       RouteTableIds:
-        - rtb-0fa892ebd61889800 # <-- USA EL MISMO ID QUE TU S3GatewayEndpoint
+        # ID de la tabla de rutas de tus subredes privadas
+        - rtb-0fa892ebd61889800
   # ============================================================================
   # API GATEWAY RESOURCES
   # ============================================================================
+  
+  # 13. El "Puente" privado entre API Gateway y el NLB
   VPCLink:
     Type: AWS::ApiGateway::VpcLink
     Properties:
       Name: notes-vpc-link
+      # Apunta al NLB interno que creamos.
       TargetArns:
         - !Ref NLB
-
+  
+  # 14. La API REST en sí
   RestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: notes-api
       Description: API para gestión de notas
 
+  # 15. El recurso de ruta /items
   ItemsResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -212,6 +255,7 @@ Resources:
       ParentId: !GetAtt RestAPI.RootResourceId
       PathPart: items
 
+  # 16. El recurso de ruta /items/{id}
   ItemResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -219,6 +263,7 @@ Resources:
       ParentId: !Ref ItemsResource
       PathPart: "{id}"
 
+  # 17. Método POST /items
   PostItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -226,14 +271,16 @@ Resources:
       ResourceId: !Ref ItemsResource
       HttpMethod: POST
       AuthorizationType: NONE
-      ApiKeyRequired: true
+      ApiKeyRequired: true # Requiere una API Key.
       Integration:
-        Type: HTTP_PROXY
+        Type: HTTP_PROXY # Reenviar la petición HTTP tal cual.
         IntegrationHttpMethod: POST
+        # Destino: El DNS privado del NLB, en el puerto 8080 y la ruta /items.
         Uri: !Sub "http://${NLB.DNSName}:8080/items"
-        ConnectionType: VPC_LINK
+        ConnectionType: VPC_LINK # Usar el "puente" para conectar.
         ConnectionId: !Ref VPCLink
 
+  # 18. Método GET /items
   GetItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -249,6 +296,7 @@ Resources:
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
 
+  # 19. Método GET /items/{id}
   GetItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -258,16 +306,18 @@ Resources:
       AuthorizationType: NONE
       ApiKeyRequired: true
       RequestParameters:
-        method.request.path.id: true
+        method.request.path.id: true # Indicar que {id} es un parámetro.
       Integration:
         Type: HTTP_PROXY
         IntegrationHttpMethod: GET
+        # Mapear el {id} de la ruta de API Gateway al {id} de la ruta del backend.
         Uri: !Sub "http://${NLB.DNSName}:8080/items/{id}"
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
+  # 20. Método PUT /items/{id}
   PutItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -287,6 +337,7 @@ Resources:
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
+  # 21. Método DELETE /items/{id}
   DeleteItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -306,6 +357,8 @@ Resources:
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
+  # MÉTODO OPTIONS PARA CORS
+  # 22. Métodos OPTIONS para CORS (en /items)
   OptionsItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -313,12 +366,13 @@ Resources:
       ResourceId: !Ref ItemsResource
       HttpMethod: OPTIONS
       AuthorizationType: NONE
-      ApiKeyRequired: false
+      ApiKeyRequired: false # CORS no debe requerir API key.
       Integration:
-        Type: MOCK
+        Type: MOCK # Integración "simulada": API Gateway responde directamente.
         IntegrationResponses:
-          - StatusCode: 200
+          - StatusCode: 200 # Responder OK...
             ResponseParameters:
+              # ...y añadir las cabeceras CORS que el navegador espera.
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
               method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               method.response.header.Access-Control-Allow-Origin: "'*'"
@@ -329,10 +383,12 @@ Resources:
       MethodResponses:
         - StatusCode: 200
           ResponseParameters:
+            # Declarar que estas cabeceras serán devueltas.
             method.response.header.Access-Control-Allow-Headers: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
+  # 23. Métodos OPTIONS para CORS (en /items/{id})
   OptionsItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -341,7 +397,7 @@ Resources:
       HttpMethod: OPTIONS
       AuthorizationType: NONE
       ApiKeyRequired: false
-      Integration:
+      Integration: # Configuración MOCK idéntica a la anterior.
         Type: MOCK
         IntegrationResponses:
           - StatusCode: 200
@@ -360,8 +416,10 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
+  # 24. Despliegue de la API (Toma una "foto" de la configuración)
   APIDeployment:
     Type: AWS::ApiGateway::Deployment
+    # No "desplegar" hasta que todos los métodos estén creados.
     DependsOn:
       - PostItemsMethod
       - GetItemsMethod
@@ -373,19 +431,22 @@ Resources:
     Properties:
       RestApiId: !Ref RestAPI
 
+  # 25. Etapa de Despliegue (Publica la "foto" en una URL)
   APIStage:
     Type: AWS::ApiGateway::Stage
     Properties:
       RestApiId: !Ref RestAPI
       DeploymentId: !Ref APIDeployment
-      StageName: prod
+      StageName: prod # -> La URL terminará en /prod
 
+  # 26. Creación de la API Key
   APIKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
       Name: notes-api-key
       Enabled: true
 
+  # 27. Plan de Uso (Define reglas para la API Key)
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     DependsOn: APIStage
@@ -395,21 +456,24 @@ Resources:
         - ApiId: !Ref RestAPI
           Stage: !Ref APIStage
 
+  # 28. Vínculo entre la Key y el Plan
   UsagePlanKey:
     Type: AWS::ApiGateway::UsagePlanKey
     Properties:
-      KeyId: !Ref APIKey
+      KeyId: !Ref APIKey # La clave que creamos...
       KeyType: API_KEY
-      UsagePlanId: !Ref UsagePlan
+      UsagePlanId: !Ref UsagePlan # ...se asocia a este plan.
 
 # ============================================================================
 # OUTPUTS
 # ============================================================================
 Outputs:
+  # La URL pública de la API que se debe usar.
   APIEndpoint:
     Description: API Gateway URL
     Value: !Sub "https://${RestAPI}.execute-api.us-east-1.amazonaws.com/prod"
 
+  # El ID de la API Key (para buscarla en la consola y ver el secreto).
   APIKeyId:
     Description: API Key ID
     Value: !Ref APIKey

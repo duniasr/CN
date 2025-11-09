@@ -7,13 +7,19 @@ Parameters:
     Default: notes-app
     Description: ECR repository name
 
+# --- Recursos a Crear ---
 Resources:
   ECRRepository:
     Type: AWS::ECR::Repository
     Properties:
+      # Asigna el nombre al repositorio usando el parámetro.
       RepositoryName: !Ref RepositoryName
+      # Configuración del escaneo de imágenes.
       ImageScanningConfiguration:
+        # Desactiva el escaneo automático de vulnerabilidades al hacer 'push'.
         ScanOnPush: false
+
+      # Política de Ciclo de Vida: Regla para limpieza automática.
       LifecyclePolicy:
         LifecyclePolicyText: |
           {
@@ -22,17 +28,24 @@ Resources:
                 "rulePriority": 1,
                 "description": "Mantain only last 2 images",
                 "selection": {
+                  # La regla se aplica a cualquier imagen (etiquetada o no).
                   "tagStatus": "any",
+                  # La regla se activa cuando el recuento de imágenes es
+                  # "mayor que" un número.
                   "countType": "imageCountMoreThan",
+                  # El número a superar es 2.
                   "countNumber": 2
                 },
                 "action": {
+                  # AWS borrará automáticamente todas las imágenes
+                  # excepto las 2 más recientes
                   "type": "expire"
                 }
               }
             ]
           }
 
+# --- Salidas del Stack ---
 Outputs:
   RepositoryUri:
     Description: ECR URI
