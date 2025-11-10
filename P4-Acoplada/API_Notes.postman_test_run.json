@@ -1,0 +1,176 @@
+{
+	"id": "b2e84e24-e324-4f7e-bb1a-1c6c66d49d58",
+	"name": "API_Notes",
+	"timestamp": "2025-11-10T11:37:36.393Z",
+	"collection_id": "49903395-ef7ec635-d864-41be-8115-48baf76df1de",
+	"folder_id": 0,
+	"environment_id": "49903395-a1c927ea-7fc2-4558-bcb4-44e413cf20a1",
+	"totalPass": 0,
+	"delay": 0,
+	"persist": true,
+	"status": "finished",
+	"startedAt": "2025-11-10T11:37:33.200Z",
+	"totalFail": 0,
+	"results": [
+		{
+			"id": "322c0d48-7c5e-4ec3-8c6f-82c271ba4c04",
+			"name": "CreateNote",
+			"url": "https://ts9fgb2mo0.execute-api.us-east-1.amazonaws.com/prod/items",
+			"time": 357,
+			"responseCode": {
+				"code": 201,
+				"name": "Created"
+			},
+			"tests": {},
+			"testPassFailCounts": {},
+			"times": [
+				357
+			],
+			"allTests": [
+				{}
+			]
+		},
+		{
+			"id": "ce0bb3d7-fb82-4022-b114-53c50a0496a1",
+			"name": "GetNote",
+			"url": "https://ts9fgb2mo0.execute-api.us-east-1.amazonaws.com/prod/items/71018d87-10e1-4e47-ba97-a7462d74060d",
+			"time": 155,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {},
+			"testPassFailCounts": {},
+			"times": [
+				155
+			],
+			"allTests": [
+				{}
+			]
+		},
+		{
+			"id": "53727a64-0b4e-4837-9764-ff93ec224806",
+			"name": "DeleteNote",
+			"url": "https://ts9fgb2mo0.execute-api.us-east-1.amazonaws.com/prod/items/71018d87-10e1-4e47-ba97-a7462d74060d",
+			"time": 357,
+			"responseCode": {
+				"code": 204,
+				"name": "No Content"
+			},
+			"tests": {},
+			"testPassFailCounts": {},
+			"times": [
+				357
+			],
+			"allTests": [
+				{}
+			]
+		},
+		{
+			"id": "80e2cf5d-f375-4fa3-90d7-521df7361462",
+			"name": "CreateNote2",
+			"url": "https://ts9fgb2mo0.execute-api.us-east-1.amazonaws.com/prod/items",
+			"time": 352,
+			"responseCode": {
+				"code": 201,
+				"name": "Created"
+			},
+			"tests": {},
+			"testPassFailCounts": {},
+			"times": [
+				352
+			],
+			"allTests": [
+				{}
+			]
+		},
+		{
+			"id": "2c13e54f-1d09-49c6-92be-3ac665fda5fb",
+			"name": "UpdateNote",
+			"url": "https://ts9fgb2mo0.execute-api.us-east-1.amazonaws.com/prod/items/22d145ee-45d4-4b77-9b7f-f4807d8d380d",
+			"time": 369,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {},
+			"testPassFailCounts": {},
+			"times": [
+				369
+			],
+			"allTests": [
+				{}
+			]
+		},
+		{
+			"id": "c3c525d0-8f01-48ae-b9ed-47ea4a4bb1b9",
+			"name": "GetNote2",
+			"url": "https://ts9fgb2mo0.execute-api.us-east-1.amazonaws.com/prod/items/22d145ee-45d4-4b77-9b7f-f4807d8d380d",
+			"time": 361,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {},
+			"testPassFailCounts": {},
+			"times": [
+				361
+			],
+			"allTests": [
+				{}
+			]
+		},
+		{
+			"id": "16ffbbe8-f0c7-45db-9259-817c011ff314",
+			"name": "GetAll",
+			"url": "https://ts9fgb2mo0.execute-api.us-east-1.amazonaws.com/prod/items",
+			"time": 356,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {},
+			"testPassFailCounts": {},
+			"times": [
+				356
+			],
+			"allTests": [
+				{}
+			]
+		}
+	],
+	"count": 1,
+	"totalTime": 2307,
+	"collection": {
+		"requests": [
+			{
+				"id": "322c0d48-7c5e-4ec3-8c6f-82c271ba4c04",
+				"method": "POST"
+			},
+			{
+				"id": "ce0bb3d7-fb82-4022-b114-53c50a0496a1",
+				"method": "GET"
+			},
+			{
+				"id": "53727a64-0b4e-4837-9764-ff93ec224806",
+				"method": "DELETE"
+			},
+			{
+				"id": "80e2cf5d-f375-4fa3-90d7-521df7361462",
+				"method": "POST"
+			},
+			{
+				"id": "2c13e54f-1d09-49c6-92be-3ac665fda5fb",
+				"method": "PUT"
+			},
+			{
+				"id": "c3c525d0-8f01-48ae-b9ed-47ea4a4bb1b9",
+				"method": "GET"
+			},
+			{
+				"id": "16ffbbe8-f0c7-45db-9259-817c011ff314",
+				"method": "GET"
+			}
+		]
+	}
+}

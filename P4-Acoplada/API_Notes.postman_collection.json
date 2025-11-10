@@ -1,10 +1,10 @@
 {
 	"info": {
-		"_postman_id": "0087f944-51b2-4288-9c6b-c14b050e4fbf",
-		"name": "Api de notas",
+		"_postman_id": "ef7ec635-d864-41be-8115-48baf76df1de",
+		"name": "API_Notes",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "49903395",
-		"_collection_link": "https://duniasr-6886254.postman.co/workspace/Dunia's-Workspace~7c831f88-58fd-4682-8ff4-e51c43029abd/collection/49903395-0087f944-51b2-4288-9c6b-c14b050e4fbf?action=share&source=collection_link&creator=49903395"
+		"_collection_link": "https://duniasr-6886254.postman.co/workspace/Dunia's-Workspace~7c831f88-58fd-4682-8ff4-e51c43029abd/collection/49903395-ef7ec635-d864-41be-8115-48baf76df1de?action=share&source=collection_link&creator=49903395"
 	},
 	"item": [
 		{
@@ -24,17 +24,6 @@
 						"packages": {},
 						"requests": {}
 					}
-				},
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							""
-						],
-						"type": "text/javascript",
-						"packages": {},
-						"requests": {}
-					}
 				}
 			],
 			"request": {
@@ -48,7 +37,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n                \"author\": \"Ana\",\r\n                \"message\": \"Recordar comprar leche\",\r\n                \"color\": \"#FFFACD\"\r\n}",
+					"raw": "{\r\n    \"author\": \"YO\",\r\n    \"message\": \"Crear nota\",\r\n    \"color\": \"#FFFACD\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -69,22 +58,15 @@
 		},
 		{
 			"name": "GetNote",
-			"event": [
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							""
-						],
-						"type": "text/javascript",
-						"packages": {},
-						"requests": {}
-					}
-				}
-			],
 			"request": {
 				"method": "GET",
-				"header": [],
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{apiKey}}",
+						"type": "text"
+					}
+				],
 				"url": {
 					"raw": "{{apiURL}}/items/{{item1_id}}",
 					"host": [
@@ -99,13 +81,109 @@
 			"response": []
 		},
 		{
-			"name": "UpdateNote",
+			"name": "DeleteNote",
 			"request": {
-				"method": "PUT",
-				"header": [],
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{apiKey}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{apiURL}}/items/{{item1_id}}",
+					"host": [
+						"{{apiURL}}"
+					],
+					"path": [
+						"items",
+						"{{item1_id}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "CreateNote2",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parsea la respuesta JSON\r",
+							"let response = pm.response.json();\r",
+							"\r",
+							"// Guarda el ID en una variable de colección llamada \"item1_id\"\r",
+							"pm.environment.set(\"item1_id\", response.note_id);"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{apiKey}}",
+						"type": "text"
+					}
+				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n                \"author\": \"Ana\",\r\n                \"message\": \"Recordar comprar agua\",\r\n                \"color\": \"#FFFACD\"\r\n}",
+					"raw": "{\r\n    \"author\": \"YO2\",\r\n    \"message\": \"Crear nota2\",\r\n    \"color\": \"#FFFACD\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{apiURL}}/items",
+					"host": [
+						"{{apiURL}}"
+					],
+					"path": [
+						"items"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "UpdateNote",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parsea la respuesta JSON\r",
+							"let response = pm.response.json();\r",
+							"\r",
+							"// Guarda el ID en una variable de colección llamada \"item1_id\"\r",
+							"pm.environment.set(\"item1_id\", response.note_id);"
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{apiKey}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"author\": \"TU\",\r\n    \"message\": \"Leer nota\",\r\n    \"color\": \"#FFFACD\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -127,9 +205,6 @@
 		},
 		{
 			"name": "GetNote2",
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
 			"request": {
 				"method": "GET",
 				"header": [
@@ -139,45 +214,6 @@
 						"type": "text"
 					}
 				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{apiURL}}/items/{{item1_id}}",
-					"host": [
-						"{{apiURL}}"
-					],
-					"path": [
-						"items",
-						"{{item1_id}}"
-					],
-					"query": [
-						{
-							"key": "",
-							"value": null,
-							"disabled": true
-						}
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "DeleteNote",
-			"request": {
-				"method": "DELETE",
-				"header": [
-					{
-						"key": "x-api-key",
-						"value": "{{apiKey}}",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
 				"url": {
 					"raw": "{{apiURL}}/items/{{item1_id}}",
 					"host": [
@@ -193,9 +229,6 @@
 		},
 		{
 			"name": "GetAll",
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
 			"request": {
 				"method": "GET",
 				"header": [
@@ -205,85 +238,6 @@
 						"type": "text"
 					}
 				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
-				"url": {
-					"raw": "{{apiURL}}/items",
-					"host": [
-						"{{apiURL}}"
-					],
-					"path": [
-						"items"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "CreateNote2",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							""
-						],
-						"type": "text/javascript",
-						"packages": {},
-						"requests": {}
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "x-api-key",
-						"value": "{{apiKey}}",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\r\n                \"author\": \"Juana\",\r\n                \"message\": \"Escribir nota\",\r\n                \"color\": \"#FFFACD\"\r\n}",
-					"options": {
-						"raw": {
-							"language": "json"
-						}
-					}
-				},
-				"url": {
-					"raw": "{{apiURL}}/items",
-					"host": [
-						"{{apiURL}}"
-					],
-					"path": [
-						"items"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "GetAll2",
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "x-api-key",
-						"value": "{{apiKey}}",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": ""
-				},
 				"url": {
 					"raw": "{{apiURL}}/items",
 					"host": [
@@ -304,21 +258,6 @@
 			"response": []
 		}
 	],
-	"auth": {
-		"type": "apikey",
-		"apikey": [
-			{
-				"key": "value",
-				"value": "A2wSqQaDHk6WEIGB5f7KJakrCc7uuFmt3pvjzDv3",
-				"type": "string"
-			},
-			{
-				"key": "key",
-				"value": "x-api-key",
-				"type": "string"
-			}
-		]
-	},
 	"event": [
 		{
 			"listen": "prerequest",
