@@ -21,7 +21,7 @@ uv venv
 - **Linux / macOS:**
 
   ```bash
-  source .venv/bin/activate
+  source .venv/bin/activate 
   ```
 
 - **Windows (PowerShell):**
