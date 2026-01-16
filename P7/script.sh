@@ -1,8 +1,8 @@
 # PRACTICA
-# 1. Variables de entorno (Asegúrate de que el Bucket coincida con tu nueva temática)
+# 1. Variables de entorno
 $env:AWS_REGION="us-east-1"
 $env:ACCOUNT_ID=(aws sts get-caller-identity --query Account --output text)
-$env:BUCKET_NAME="datalake-ambiental-$env:ACCOUNT_ID"
+$env:BUCKET_NAME="datalake-tv-series-$env:ACCOUNT_ID"
 $env:ROLE_ARN="arn:aws:iam::339712904114:role/LabRole"
 
 # 2. Crear la infraestructura base
@@ -13,7 +13,7 @@ aws s3api put-object --bucket $env:BUCKET_NAME --key processed/tabla_duracion/
 aws s3api put-object --bucket $env:BUCKET_NAME --key scripts/
 
 # 3. Crear el Stream de Kinesis con el nuevo nombre
-aws kinesis create-stream --stream-name ambiental-stream --shard-count 1
+aws kinesis create-stream --stream-name tv-shows-stream --shard-count 1
 # Comprobar que está activo
 aws kinesis describe-stream-summary --stream-name tv-shows-stream
 
@@ -68,8 +68,6 @@ aws glue get-job-runs --job-name "tv-puntuacion-genero" --query "JobRuns[0].JobR
 aws glue start-job-run --job-name "tv-duracion-idioma" --arguments "{\`"--database\`":\`"tv_series_db\`",\`"--table\`":\`"raw\`",\`"--output_path\`":\`"s3://$($env:BUCKET_NAME)/processed/\`"}"
 # Comprobar estado job
 aws glue get-job-runs --job-name "tv-duracion-idioma" --query "JobRuns[0].JobRunState"
-
-# Comprobar q los archivos están en S3
 
 # 12. Crear Crawler final que registrará las dos tablas "tabla_calidad" y "tabla_duracion"
 aws glue create-crawler --name tv-series-processed-crawler --role $env:ROLE_ARN --database-name tv_series_db --targets "{\`"S3Targets\`": [{\`"Path\`": \`"s3://$($env:BUCKET_NAME)/processed/\`"}]}"
